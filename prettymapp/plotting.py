@@ -15,6 +15,8 @@ import matplotlib.patheffects as PathEffects
 
 from prettymapp.settings import STREETS_WIDTH, STYLES
 
+RECTANGULAR_SHAPES = {"rectangle", "rectangle_landscape", "rectangle_portrait"}
+
 
 @dataclass
 class Plot:
@@ -27,7 +29,8 @@ class Plot:
         draw_settings: Dictionary of color & draw settings, see prettymapp.settings.STYLES
         
         # Map layout
-        shape: the map shape, "circle" or "rectangle"
+        shape: the map shape, "circle", "rectangle" (square),
+            "rectangle_landscape", or "rectangle_portrait"
         contour_width: width of the map contour, defaults to 0
         contour_color: color of the map contour, defaults to "#2F3537"
         
@@ -165,7 +168,7 @@ class Plot:
                 )
 
     def set_map_contour(self):
-        if self.shape == "rectangle":
+        if self.shape in RECTANGULAR_SHAPES:
             patch = Rectangle(
                 xy=(self.xmin, self.ymin),
                 width=self.xdif,

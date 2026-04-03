@@ -73,11 +73,28 @@ style: str = col3.selectbox(
 expander = form.expander("Customize map style")
 col1style, col2style, _, col3style = expander.columns([2, 2, 0.1, 1])
 
-shape_options = ["circle", "rectangle"]
+shape_options = [
+    "circle",
+    "rectangle",
+    "rectangle_landscape",
+    "rectangle_portrait",
+]
+shape_labels = {
+    "circle": "Circle",
+    "rectangle": "Square",
+    "rectangle_landscape": "Rectangle (Landscape)",
+    "rectangle_portrait": "Rectangle (Portrait)",
+}
+shape_aspect_ratios = {
+    "rectangle": (1, 1),
+    "rectangle_landscape": (4, 3),
+    "rectangle_portrait": (3, 4),
+}
 shape = col1style.radio(
     "Map Shape",
     options=shape_options,
     key="shape",
+    format_func=lambda value: shape_labels[value],
 )
 
 bg_shape_options = ["rectangle", "circle", None]
@@ -165,8 +182,14 @@ form.form_submit_button(label="Submit")
 
 with st.spinner("Creating map... (may take up to a minute)"):
     rectangular = shape != "circle"
+    aspect_ratio = shape_aspect_ratios.get(shape)
     try:
-        aoi = get_aoi(address=address, radius=radius, rectangular=rectangular)
+        aoi = get_aoi(
+            address=address,
+            radius=radius,
+            rectangular=rectangular,
+            aspect_ratio=aspect_ratio,
+        )
     except GeoCodingError as e:
         st.error(f"ERROR: {str(e)}")
         st.stop()

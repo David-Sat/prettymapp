@@ -24,6 +24,7 @@ def get_aoi(
     coordinates: Optional[Tuple[float, float]] = None,
     radius: int = 1000,
     rectangular: bool = False,
+    aspect_ratio: Optional[Tuple[float, float]] = None,
 ) -> Polygon:
     """
     Gets round or rectangular shapely Polygon in in 4326 from input address or coordinates.
@@ -33,6 +34,8 @@ def get_aoi(
         coordinates: lat, lon
         radius: Radius in meter
         rectangular: Optionally return aoi as rectangular polygon, default False.
+        aspect_ratio: Optional width, height ratio for rectangular AOIs. Defaults to
+            a square (1, 1) when `rectangular=True`.
 
     Returns:
         shapely Polygon in 4326 crs
@@ -57,14 +60,52 @@ def get_aoi(
         DataFrame([0], columns=["id"]), crs="EPSG:4326", geometry=[Point(lon, lat)]
     )
     df = df.to_crs(df.estimate_utm_crs())
-    df.geometry = df.geometry.buffer(radius)
+    point = df.iloc[0].geometry
+
+    if rectangular:
+        square_aoi = _get_square_aoi(df, point, radius)
+        if aspect_ratio is None or aspect_ratio == (1, 1):
+            return square_aoi
+        return _get_rectangular_aoi(square_aoi, aspect_ratio)
+    else:
+        poly = point.buffer(radius)
+
+    df.geometry = [poly]
     df = df.to_crs(crs=4326)
     poly = df.iloc[0].geometry
 
-    if rectangular:
-        poly = box(*poly.bounds)
-
     return poly
+
+
+def _get_square_aoi(df: GeoDataFrame, center: Point, radius: int) -> Polygon:
+    poly = center.buffer(radius)
+    df.geometry = [poly]
+    df = df.to_crs(crs=4326)
+    return box(*df.iloc[0].geometry.bounds)
+
+
+def _get_rectangular_aoi(square_aoi: Polygon, aspect_ratio: Tuple[float, float]) -> Polygon:
+    width_ratio, height_ratio = aspect_ratio
+    if width_ratio <= 0 or height_ratio <= 0:
+        raise ValueError("aspect_ratio values must be larger than 0.")
+
+    minx, miny, maxx, maxy = square_aoi.bounds
+    width = maxx - minx
+    height = maxy - miny
+    xmid = (minx + maxx) / 2
+    ymid = (miny + maxy) / 2
+
+    if width_ratio >= height_ratio:
+        width *= width_ratio / height_ratio
+    else:
+        height *= height_ratio / width_ratio
+
+    return box(
+        xmid - width / 2,
+        ymid - height / 2,
+        xmid + width / 2,
+        ymid + height / 2,
+    )
 
 
 def explode_multigeometries(df: GeoDataFrame) -> GeoDataFrame:
